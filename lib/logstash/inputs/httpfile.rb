@@ -17,7 +17,7 @@ class LogStash::Inputs::HttpFile < LogStash::Inputs::Base
 
   public
   def register
-    if url =~ /\A#{URI::regexp(['http', 'https'])}\z/
+    if !url =~ /\A#{URI::regexp(['http', 'https'])}\z/
       raise ArgumentError.new("URL is not valid: #{url}")
     end
   end # def register
