@@ -28,6 +28,8 @@ class LogStash::Inputs::HttpFile < LogStash::Inputs::Base
     http = Net::HTTP.new(uri.host, uri.port)
 
     offset = 0
+    buffer = ""
+
     while true
       begin
         contentLength = http.head(uri.path).content_length
@@ -38,9 +40,26 @@ class LogStash::Inputs::HttpFile < LogStash::Inputs::Base
           end
 
           http.get(uri.path, {"accept-encoding" => "chunked", 'Range' => "bytes=#{offset}-"}) do |chunk|
-            @codec.decode(chunk) do |event|
-              decorate(event)
-              queue << event
+            if chunk.start_with?("\r") || chunk.start_with?("\n")
+              if !buffer.empty?
+                @codec.decode(buffer) do |event|
+                  decorate(event)
+                  queue << event
+                end
+              end
+            else
+              chunk.prepend(buffer)
+            end
+
+            lines = chunk.split(/\r?\n/)
+            if !lines.empty?
+              buffer = lines.pop
+              lines.map{ | line |
+                @codec.decode(line) do |event|
+                  decorate(event)
+                  queue << event
+                end
+              }
             end
           end
 
